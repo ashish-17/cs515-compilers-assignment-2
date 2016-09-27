@@ -1,0 +1,63 @@
+This file provides instructions for compiling and running your project
+code. The compilation of the project will be done using OCaml suite of
+tools (including ocaml, ocamlc, ocamllex, and ocamlyacc).
+
+Note: We have tested this project infrastructure code only on OCaml
+versions 4.0 or higher. We recommend using OCaml version-4.0.
+
+Instructions:
+
+(1) We recommend using a version control system such as svn, git or
+cvs to maintain your source code.
+
+(2) Check your OCaml version
+
+Type ocaml at your prompt and you should see something similar to what is shown below.
+
+bash-3.2$ ocaml
+          OCaml version 4.0.3
+
+# 
+
+Your compiler will (eventually) output assembly code that we will
+process using gcc compiler.
+
+(3) Compiling your assignments
+
+To compile your projects, use the ocamlbuild tool. The ocamlbuild can
+generate bytecode (for use in the interactive toplevel) or native code
+(for better performance).
+
+Go to the directory containing the project source and run the
+following command:
+
+$ ocamlbuild main.native main.byte
+
+
+(4) Running your assignments and testing them
+
+After compiling your assignment, you can run it from the command line
+by executing either the native or bytecode version.
+
+The assignments in this course are designed to have a single,
+top-level entry point in the file main.ml. When compiled by
+ocamlbuild, the resulting executables are main.native and main.byte
+
+The project also has a test harness that can be used with a variety of
+switches and command-line arguments. You can always check which
+command-line switches are available by using the -help or --help
+flags. Project2  supports only one interesting command-line option
+--test.
+
+$./main.native -help
+Fall 2016 CS 515 main test harness 
+
+  --test run the test suite, ignoring other inputs
+  -help  Display this list of options
+  --help  Display this list of options
+
+All assignments in this course will support the --test option, which
+will simplfy run the project's unit tests, print a summary of the
+results and then exit. It will give output something like below to
+indicate how much of the project you have completed.
+
