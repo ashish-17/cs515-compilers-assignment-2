@@ -35,7 +35,11 @@ let mem_bot: int32 = (Int32.mul (Int32.of_int (mem_size * 4)) (-1l))
 *)
 
 let map_addr (addr: int32) : int = 
- failwith "unimplemented"
+    if Int32.rem addr 4l <> 0l || addr < mem_bot || addr > mem_top then
+        raise (X86_segmentation_fault "Invalid Address")
+    else
+        Int32.to_int (Int32.div (Int32.sub addr mem_bot) 4l)
+        
 
 type x86_state = {
    s_memory : int32 array;  (* 1024 32-bit words -- the heap *)
