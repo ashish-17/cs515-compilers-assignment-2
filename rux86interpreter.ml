@@ -72,7 +72,16 @@ let print_state (xs:x86_state): unit =
 (* Helper function that determines whether a given condition code
    applies in the x86 state xs. *)  
 let condition_matches (xs:x86_state) (c:Rux86.ccode) : bool =
-failwith "unimplemented"
+    begin match c with
+        | Sgt       -> xs.s_of = xs.s_sf && xs.s_zf == false
+        | Sge       -> xs.s_of = xs.s_sf
+        | Slt       -> xs.s_of <> xs.s_sf
+        | Sle       -> xs.s_of <> xs.s_sf || xs.s_zf
+        | Eq        -> xs.s_zf
+        | NotEq     -> xs.s_zf = false
+        | Zero      -> xs.s_zf
+        | NotZero   -> xs.s_zf = false
+    end
 
 (* Returns the bit at a given index in a 32-bit word as a boolean *)
 let get_bit bitidx n =
