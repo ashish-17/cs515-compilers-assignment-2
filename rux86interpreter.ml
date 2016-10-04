@@ -89,8 +89,61 @@ let get_bit bitidx n =
   Int32.logand shb n = shb  
 
 
+let eval_reg (r:reg) (xs:x86_state) :int32 = Array.get xs.s_regs (get_register_id r) 
+
+let eval_disp (d:disp) : int32 = 
+    match d with
+    | DImm x -> x
+    | _ ->  raise (X86_segmentation_fault "Can't evaluate a label")
+
+let eval_ind (i:ind) (xs:x86_state): int32 = 
+    begin
+        match i with
+        | {i_base=Some b; i_iscl=Some s; i_disp=Some d} -> Int32.add (Int32.add (eval_reg b xs) (Int32.mul (eval_reg (fst s) xs) (snd s))) (eval_disp d)
+        | {i_base=Some b; i_iscl=Some s;}               -> Int32.add (eval_reg b xs) (Int32.mul (eval_reg (fst s) xs) (snd s))
+        | {i_base=Some b; i_disp=Some d}                -> Int32.add (eval_reg b xs) (eval_disp d)
+        | {i_iscl=Some s; i_disp=Some d}                -> Int32.add (Int32.mul (eval_reg (fst s) xs) (snd s)) (eval_disp d)
+        | {i_base=Some b;}                              -> eval_reg b xs
+        | {i_iscl=Some s;}                              -> Int32.mul (eval_reg (fst s) xs) (snd s)
+        | {i_disp=Some d}                               -> eval_disp d
+        | _                                             -> 0l
+    end
+
+let rec eval_operand (o:operand) (xs:x86_state) : int32 = 
+    begin
+        match o with
+        | Imm x -> x
+        | Lbl l -> raise (X86_segmentation_fault "Can't evaluate a label")
+        | Reg r -> eval_reg r xs
+        | Ind i -> eval_ind i xs
+    end
+
+let rec insn_lbl (code: insn_block list) (l:lbl) : insn_block = 
+    begin
+        match code with
+        | [] -> raise (X86_segmentation_fault "Invalid Label")
+        | h::t -> if h.label = l then h else insn_lbl t l
+    end
+
 let interpret (code:insn_block list) (xs:x86_state) (l:lbl) : unit = 
-failwith "unimplemented"
+    begin
+        match code with
+        | [] -> ()
+        | _  -> () (*interpret_insns (insn_lbl code l) xs*)
+    end
+
+let rec interpret_insns (code:insn_block) (xs:x86_state) : unit = 
+    begin
+        match code.insns with
+        | [] -> ()
+        | i::rest -> 
+                let old_xs = xs in
+                begin
+                    match i with
+                    | Add (s, d) -> ()
+                    | _ -> ()
+                end
+    end
 
 let run (code:insn_block list): int32 = 
   let main = mk_lbl_named "main" in 
