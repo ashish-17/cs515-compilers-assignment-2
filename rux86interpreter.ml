@@ -88,6 +88,10 @@ let get_bit bitidx n =
   let shb = Int32.shift_left 1l bitidx in
   Int32.logand shb n = shb  
 
+let has_same_sign (s:int64) (d:int64) : bool = 
+    let isSPos = Int64.compare s (Int64.of_int32 0l) >= 0 in
+    let isDPos = Int64.compare d (Int64.of_int32 0l) >= 0 in
+    if (isSPos && isDPos) || (not isSPos && not isDPos) then true else false
 
 let eval_reg (r:reg) (xs:x86_state) :int32 = Array.get xs.s_regs (get_register_id r) 
 
@@ -169,17 +173,56 @@ let rec find_block (code: insn_block list) (l:lbl) : insn_block =
         | h::t -> if h.label = l then h else find_block t l
     end
 
+let interpret_neg (d:operand) (xs:x86_state) : unit = 
+    begin
+        let d_val = read_operand d xs in
+        let result = Int32.neg d_val in
+        let _ = (if Int32.min_int = result then xs.s_of = true else xs.s_of = false) in ();
+        set_sf xs result;
+        set_zf xs result;
+        write_operand d result xs
+    end
+
 let interpret_add (s:operand) (d:operand) (xs:x86_state) : unit = 
     begin
         let s_val = eval_operand s xs in
         let d_val = read_operand d xs in
-        let result32 = Int32.add s_val d_val in
         let result64 = Int64.add (Int64.of_int32 s_val) (Int64.of_int32 d_val) in
         let result = Int64.to_int32 result64 in
-        let _ = (if (Int64.of_int32 result32) <> result64 then xs.s_of = true else xs.s_of = false) in ();
+        let _ = (if (has_same_sign (Int64.of_int32 s_val) (Int64.of_int32 d_val) && not (has_same_sign (Int64.of_int32 result) (Int64.of_int32 s_val))) then 
+            xs.s_of = true 
+        else xs.s_of = false) in ();
         set_sf xs result;
         set_zf xs result;
         write_operand d result xs
+    end
+
+let interpret_sub (s:operand) (d:operand) (xs:x86_state) : unit = 
+    begin
+        let s_val = eval_operand s xs in
+        let d_val = read_operand d xs in
+        let result64 = Int64.add (Int64.of_int32 (Int32.neg s_val)) (Int64.of_int32 d_val) in
+        let result = Int64.to_int32 result64 in
+        let _ = (if (has_same_sign (Int64.of_int32 s_val) (Int64.of_int32 d_val) && not (has_same_sign (Int64.of_int32 result) (Int64.of_int32 s_val)) || result = Int32.min_int) then 
+            xs.s_of = true 
+        else xs.s_of = false) in ();
+        set_sf xs result;
+        set_zf xs result;
+        write_operand d result xs
+    end
+
+let interpret_mul (s:operand) (d:reg) (xs:x86_state) : unit = 
+    begin
+        let s_val = eval_operand s xs in
+        let d_val = read_reg d xs in
+        let result64 = Int64.mul (Int64.of_int32 s_val) (Int64.of_int32 d_val) in
+        let result = Int64.to_int32 result64 in
+        let _ = (if result64 <> Int64.of_int32 result then 
+            xs.s_of = true 
+        else xs.s_of = false) in ();
+        set_sf xs result;
+        set_zf xs result;
+        write_reg d result xs
     end
 
 let rec interpret (code:insn_block list) (xs:x86_state) (l:lbl) : unit = 
@@ -193,14 +236,21 @@ let rec interpret (code:insn_block list) (xs:x86_state) (l:lbl) : unit =
         match code_insns with
         | [] -> ()
         | i::rest ->
-                let old_xs = xs in
                 begin
                     match i with
+                    | Neg (d) -> 
+                            interpret_neg d xs;
+                            interpret_insns rest xs
                     | Add (s, d) -> 
                             interpret_add s d xs;
                             interpret_insns rest xs
+                    | Sub (s, d) -> 
+                            interpret_sub s d xs;
+                            interpret_insns rest xs
+                    | Imul (s, d) -> 
+                            interpret_mul s d xs;
+                            interpret_insns rest xs
                     | _ -> ()
-                    
                 end
     end
 

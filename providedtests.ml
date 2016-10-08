@@ -15,8 +15,8 @@ let provided_tests : suite = [
   Test ("Student-Provided Big Test for Part II", [
   ]);
  
-  Test ("Studet-Provided test for Add instr", [
-    ("add", st_test "eax=ebx=*1023=1"
+  Test ("Student-Provided test for Add instr", [
+    ("add", st_test "..."
             [(mk_block "main" [
                 Add (Imm 1l, eax);
 	            Add (eax, ebx);
@@ -25,8 +25,6 @@ let provided_tests : suite = [
                 Add (Imm 1l, edx);
                 Add (ecx, esi);
                 Add (Imm 2147483646l, esi);
-                Add (esi, edi);
-                Add (Imm 2147483646l, edi);
             ])]
             (fun state ->
                 state.s_regs.(0) = 1l &&
@@ -34,6 +32,46 @@ let provided_tests : suite = [
                 state.s_regs.(2) = 2147483647l &&
                 state.s_regs.(3) = -2147483648l &&
                 state.s_regs.(4) = -3l) 
+    );
+  ]);
+  Test ("Student-Provided test for Sub instr", [
+    ("sub", st_test "..."
+            [(mk_block "main" [
+                Sub (Imm 1l, eax);
+	            Sub (eax, ebx);
+                Sub (Imm 2147483647l, ecx);
+                Sub (ecx, edx);
+                Sub (Imm 1l, edx);
+                Sub (ecx, esi);
+                Sub (Imm 2147483646l, esi);
+            ])]
+            (fun state ->
+                state.s_regs.(0) = -1l &&
+                state.s_regs.(1) = 1l &&
+                state.s_regs.(2) = -2147483647l &&
+                state.s_regs.(3) = 2147483646l &&
+                state.s_regs.(4) = 1l) 
+    );
+  ]);
+  Test ("Student-Provided test for Imul instr", [
+    ("Imul", st_test "..."
+            [(mk_block "main" [
+                Add (Imm 1l, eax);
+                Add (eax, ebx);
+                Add (eax, ecx);
+                Add (eax, edx);
+	            Imul (Imm 20l, Eax);
+                Imul (Imm 2147483647l, Ebx);
+                Imul (Imm 2147483647l, Ecx);
+                Imul (ecx, Ecx);
+                Imul (Imm 2147483647l, Edx);
+                Imul (Imm 2l, Edx);
+            ])]
+            (fun state ->
+                state.s_regs.(0) = 20l &&
+                state.s_regs.(1) = 2147483647l &&
+                state.s_regs.(2) = 1l &&
+                state.s_regs.(3) = -2l) 
     );
   ]);
 ] 
