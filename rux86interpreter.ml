@@ -118,30 +118,89 @@ let rec eval_operand (o:operand) (xs:x86_state) : int32 =
         | Ind i -> eval_ind i xs
     end
 
-let rec insn_lbl (code: insn_block list) (l:lbl) : insn_block = 
+let read_reg (r:reg) (xs:x86_state) :int32 = Array.get xs.s_regs (get_register_id r)
+
+let read_mem (addr:int32) (xs:x86_state) :int32 = 
+    begin
+        let idx = map_addr(addr) in
+        Array.get xs.s_memory idx
+    end
+
+let write_reg (r:reg) (data:int32) (xs:x86_state) :unit = Array.set xs.s_regs (get_register_id r) data
+
+let write_mem (addr:int32) (data:int32) (xs:x86_state) :unit = 
+    begin
+        let idx = map_addr(addr) in
+        Array.set xs.s_memory idx data
+    end
+
+let rec read_operand (o:operand) (xs:x86_state) : int32 = 
+    begin
+        match o with
+        | Imm x -> read_mem x xs
+        | Lbl l -> raise (X86_segmentation_fault "Can't evaluate a label")
+        | Reg r -> read_reg r xs
+        | Ind i -> read_mem (eval_ind i xs) xs
+    end
+
+let rec write_operand (o:operand) (data:int32) (xs:x86_state) : unit = 
+    begin
+        match o with
+        | Imm x -> write_mem x data xs
+        | Lbl l -> raise (X86_segmentation_fault "Can't evaluate a label")
+        | Reg r -> write_reg r data xs
+        | Ind i -> write_mem (eval_ind i xs) data xs
+    end
+
+let set_sf (xs:x86_state) (result:int32) : unit = 
+    begin
+        let _ = (xs.s_sf = get_bit 31 result) in ()
+    end
+
+let set_zf (xs:x86_state) (result:int32) : unit = 
+    begin
+        let _ = (if result = 0l then xs.s_zf = true else xs.s_zf = false) in ()
+    end
+
+let rec find_block (code: insn_block list) (l:lbl) : insn_block = 
     begin
         match code with
         | [] -> raise (X86_segmentation_fault "Invalid Label")
-        | h::t -> if h.label = l then h else insn_lbl t l
+        | h::t -> if h.label = l then h else find_block t l
     end
 
-let interpret (code:insn_block list) (xs:x86_state) (l:lbl) : unit = 
+let interpret_add (s:operand) (d:operand) (xs:x86_state) : unit = 
+    begin
+        let s_val = eval_operand s xs in
+        let d_val = read_operand d xs in
+        let result32 = Int32.add s_val d_val in
+        let result64 = Int64.add (Int64.of_int32 s_val) (Int64.of_int32 d_val) in
+        let result = Int64.to_int32 result64 in
+        let _ = (if (Int64.of_int32 result32) <> result64 then xs.s_of = true else xs.s_of = false) in ();
+        set_sf xs result;
+        set_zf xs result;
+        write_operand d result xs
+    end
+
+let rec interpret (code:insn_block list) (xs:x86_state) (l:lbl) : unit = 
     begin
         match code with
         | [] -> ()
-        | _  -> () (*interpret_insns (insn_lbl code l) xs*)
+        | _  -> interpret_insns (find_block code l).insns xs
     end
-
-let rec interpret_insns (code:insn_block) (xs:x86_state) : unit = 
+    and interpret_insns (code_insns:insn list) (xs:x86_state) : unit = 
     begin
-        match code.insns with
+        match code_insns with
         | [] -> ()
-        | i::rest -> 
+        | i::rest ->
                 let old_xs = xs in
                 begin
                     match i with
-                    | Add (s, d) -> ()
+                    | Add (s, d) -> 
+                            interpret_add s d xs;
+                            interpret_insns rest xs
                     | _ -> ()
+                    
                 end
     end
 
