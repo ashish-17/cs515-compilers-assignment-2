@@ -167,12 +167,12 @@ let rec write_operand (o:operand) (data:int32) (xs:x86_state) : unit =
 
 let set_sf (xs:x86_state) (result:int32) : unit = 
     begin
-        let _ = (xs.s_sf = get_bit 31 result) in ()
+        let _ = (xs.s_sf <- get_bit 31 result) in ()
     end
 
 let set_zf (xs:x86_state) (result:int32) : unit = 
     begin
-        let _ = (if result = 0l then xs.s_zf = true else xs.s_zf = false) in ()
+        let _ = (if result = 0l then xs.s_zf <- true else xs.s_zf <- false) in ()
     end
 
 let rec find_block (code: insn_block list) (l:lbl) : insn_block = 
@@ -186,7 +186,7 @@ let interpret_neg (d:operand) (xs:x86_state) : unit =
     begin
         let d_val = read_operand d xs in
         let result = Int32.neg d_val in
-        let _ = (if Int32.min_int = result then xs.s_of = true else xs.s_of = false) in ();
+        let _ = (if Int32.min_int = result then xs.s_of <- true else xs.s_of <- false) in ();
         set_sf xs result;
         set_zf xs result;
         write_operand d result xs
@@ -199,8 +199,8 @@ let interpret_add (s:operand) (d:operand) (xs:x86_state) : unit =
         let result64 = Int64.add (Int64.of_int32 s_val) (Int64.of_int32 d_val) in
         let result = Int64.to_int32 result64 in
         let _ = (if (has_same_sign (Int64.of_int32 s_val) (Int64.of_int32 d_val) && not (has_same_sign (Int64.of_int32 result) (Int64.of_int32 s_val))) then 
-            xs.s_of = true 
-        else xs.s_of = false) in ();
+            xs.s_of <- true 
+        else xs.s_of <- false) in ();
         set_sf xs result;
         set_zf xs result;
         write_operand d result xs
@@ -213,8 +213,8 @@ let interpret_sub (s:operand) (d:operand) (xs:x86_state) : unit =
         let result64 = Int64.add (Int64.of_int32 s_val) (Int64.of_int32 d_val) in
         let result = Int64.to_int32 result64 in
         let _ = (if (has_same_sign (Int64.of_int32 s_val) (Int64.of_int32 d_val) && not (has_same_sign (Int64.of_int32 result) (Int64.of_int32 s_val)) || result = Int32.min_int) then 
-            xs.s_of = true 
-        else xs.s_of = false) in ();
+            xs.s_of <- true 
+        else xs.s_of <- false) in ();
         set_sf xs result;
         set_zf xs result;
         write_operand d result xs
@@ -227,8 +227,8 @@ let interpret_mul (s:operand) (d:reg) (xs:x86_state) : unit =
         let result64 = Int64.mul (Int64.of_int32 s_val) (Int64.of_int32 d_val) in
         let result = Int64.to_int32 result64 in
         let _ = (if result64 <> Int64.of_int32 result then 
-            xs.s_of = true 
-        else xs.s_of = false) in ();
+            xs.s_of <- true 
+        else xs.s_of <- false) in ();
         set_sf xs result;
         set_zf xs result;
         write_reg d result xs
@@ -238,7 +238,7 @@ let interpret_not (d:operand) (xs:x86_state) : unit =
     begin
         let d_val = read_operand d xs in
         let result = Int32.lognot d_val in
-        let _ = (xs.s_of = false) in ();
+        let _ = (xs.s_of <- false) in ();
         set_sf xs result;
         set_zf xs result;
         write_operand d result xs
@@ -249,7 +249,7 @@ let interpret_and (s:operand) (d:operand) (xs:x86_state) : unit =
         let s_val = eval_operand_val s xs in
         let d_val = read_operand d xs in
         let result = Int32.logand s_val d_val in
-        let _ = (xs.s_of = false) in ();
+        let _ = (xs.s_of <- false) in ();
         set_sf xs result;
         set_zf xs result;
         write_operand d result xs
@@ -260,7 +260,7 @@ let interpret_or (s:operand) (d:operand) (xs:x86_state) : unit =
         let s_val = eval_operand_val s xs in
         let d_val = read_operand d xs in
         let result = Int32.logor s_val d_val in
-        let _ = (xs.s_of = false) in ();
+        let _ = (xs.s_of <- false) in ();
         set_sf xs result;
         set_zf xs result;
         write_operand d result xs
@@ -271,7 +271,7 @@ let interpret_xor (s:operand) (d:operand) (xs:x86_state) : unit =
         let s_val = eval_operand_val s xs in
         let d_val = read_operand d xs in
         let result = Int32.logxor s_val d_val in
-        let _ = (xs.s_of = false) in ();
+        let _ = (xs.s_of <- false) in ();
         set_sf xs result;
         set_zf xs result;
         write_operand d result xs
@@ -282,12 +282,12 @@ let interpret_sar (amnt:operand) (d:operand) (xs:x86_state) : unit =
         let amnt_val = Int32.to_int(eval_operand_val amnt xs) in
         let d_val = read_operand d xs in
         let result = Int32.shift_right d_val amnt_val in
+        write_operand d result xs;
         if amnt_val <> 0 then
             set_sf xs result;
             set_zf xs result;
         if amnt_val = 1 then
-            let _ = (xs.s_of = false) in ();
-        write_operand d result xs
+            let _ = (xs.s_of <- false) in ();
     end
 
 let interpret_shl (amnt:operand) (d:operand) (xs:x86_state) : unit = 
@@ -295,12 +295,12 @@ let interpret_shl (amnt:operand) (d:operand) (xs:x86_state) : unit =
         let amnt_val = Int32.to_int(eval_operand_val amnt xs) in
         let d_val = read_operand d xs in
         let result = Int32.shift_left d_val amnt_val in
+        write_operand d result xs;
         if amnt_val <> 0 then
             set_sf xs result;
             set_zf xs result;
         if amnt_val = 1 && ((get_bit 31 result) <> (get_bit 30 result)) then
-            let _ = (xs.s_of = true) in ();
-        write_operand d result xs
+            let _ = (xs.s_of <- true) in ();
     end
 
 let interpret_shr (amnt:operand) (d:operand) (xs:x86_state) : unit = 
@@ -308,12 +308,12 @@ let interpret_shr (amnt:operand) (d:operand) (xs:x86_state) : unit =
         let amnt_val = Int32.to_int(eval_operand_val amnt xs) in
         let d_val = read_operand d xs in
         let result = Int32.shift_right_logical d_val amnt_val in
+        write_operand d result xs;
         if amnt_val <> 0 then
             set_sf xs result;
             set_zf xs result;
         if amnt_val = 1 then
-            let _ = (xs.s_of = get_bit 31 d_val) in ();
-        write_operand d result xs
+            let _ = (xs.s_of <- get_bit 31 d_val) in ();
     end
 
 let interpret_setb (cc:Rux86.ccode) (d:operand) (xs:x86_state) : unit = 
@@ -361,8 +361,8 @@ let interpret_cmp (s1:operand) (s2:operand) (xs:x86_state) : unit =
         let result64 = Int64.add (Int64.of_int32 s1_val) (Int64.of_int32 s2_val) in
         let result = Int64.to_int32 result64 in
         let _ = (if (has_same_sign (Int64.of_int32 s1_val) (Int64.of_int32 s2_val) && not (has_same_sign (Int64.of_int32 result) (Int64.of_int32 s1_val)) || result = Int32.min_int) then 
-            xs.s_of = true 
-        else xs.s_of = false) in ();
+            xs.s_of <- true 
+        else xs.s_of <- false) in ();
         set_sf xs result;
         set_zf xs result;
     end
