@@ -212,7 +212,7 @@ let interpret_sub (s:operand) (d:operand) (xs:x86_state) : unit =
         let d_val = read_operand d xs in
         let result64 = Int64.add (Int64.of_int32 s_val) (Int64.of_int32 d_val) in
         let result = Int64.to_int32 result64 in
-        let _ = (if (has_same_sign (Int64.of_int32 s_val) (Int64.of_int32 d_val) && not (has_same_sign (Int64.of_int32 result) (Int64.of_int32 s_val)) || result = Int32.min_int) then 
+        let _ = (if (has_same_sign (Int64.of_int32 s_val) (Int64.of_int32 d_val) && not (has_same_sign (Int64.of_int32 result) (Int64.of_int32 s_val)) || s_val = Int32.min_int) then 
             xs.s_of <- true 
         else xs.s_of <- false) in ();
         set_sf xs result;
@@ -360,7 +360,7 @@ let interpret_cmp (s1:operand) (s2:operand) (xs:x86_state) : unit =
         let s2_val = eval_operand_val s2 xs in  
         let result64 = Int64.add (Int64.of_int32 s1_val) (Int64.of_int32 s2_val) in
         let result = Int64.to_int32 result64 in
-        let _ = (if (has_same_sign (Int64.of_int32 s1_val) (Int64.of_int32 s2_val) && not (has_same_sign (Int64.of_int32 result) (Int64.of_int32 s1_val)) || result = Int32.min_int) then 
+        let _ = (if (has_same_sign (Int64.of_int32 s1_val) (Int64.of_int32 s2_val) && not (has_same_sign (Int64.of_int32 result) (Int64.of_int32 s1_val)) || s1_val = Int32.min_int) then 
             xs.s_of <- true 
         else xs.s_of <- false) in ();
         set_sf xs result;
