@@ -122,7 +122,6 @@ let rec eval_operand (o:operand) (xs:x86_state) : int32 =
         | Ind i -> eval_ind i xs
     end
 
-let read_reg (r:reg) (xs:x86_state) :int32 = Array.get xs.s_regs (get_register_id r)
 
 let read_mem (addr:int32) (xs:x86_state) :int32 = 
     begin
@@ -130,6 +129,16 @@ let read_mem (addr:int32) (xs:x86_state) :int32 =
         Array.get xs.s_memory idx
     end
 
+let rec eval_operand_val (o:operand) (xs:x86_state) : int32 = 
+    begin
+        match o with
+        | Imm x -> x
+        | Lbl l -> raise (X86_segmentation_fault "Can't evaluate a label")
+        | Reg r -> eval_reg r xs
+        | Ind i -> read_mem (eval_ind i xs) xs
+    end
+
+let read_reg (r:reg) (xs:x86_state) :int32 = Array.get xs.s_regs (get_register_id r)
 let write_reg (r:reg) (data:int32) (xs:x86_state) :unit = Array.set xs.s_regs (get_register_id r) data
 
 let write_mem (addr:int32) (data:int32) (xs:x86_state) :unit = 
@@ -185,7 +194,7 @@ let interpret_neg (d:operand) (xs:x86_state) : unit =
 
 let interpret_add (s:operand) (d:operand) (xs:x86_state) : unit = 
     begin
-        let s_val = eval_operand s xs in
+        let s_val = eval_operand_val s xs in
         let d_val = read_operand d xs in
         let result64 = Int64.add (Int64.of_int32 s_val) (Int64.of_int32 d_val) in
         let result = Int64.to_int32 result64 in
@@ -199,9 +208,9 @@ let interpret_add (s:operand) (d:operand) (xs:x86_state) : unit =
 
 let interpret_sub (s:operand) (d:operand) (xs:x86_state) : unit = 
     begin
-        let s_val = eval_operand s xs in
+        let s_val = Int32.mul (eval_operand_val s xs) (-1l) in
         let d_val = read_operand d xs in
-        let result64 = Int64.add (Int64.of_int32 (Int32.neg s_val)) (Int64.of_int32 d_val) in
+        let result64 = Int64.add (Int64.of_int32 s_val) (Int64.of_int32 d_val) in
         let result = Int64.to_int32 result64 in
         let _ = (if (has_same_sign (Int64.of_int32 s_val) (Int64.of_int32 d_val) && not (has_same_sign (Int64.of_int32 result) (Int64.of_int32 s_val)) || result = Int32.min_int) then 
             xs.s_of = true 
@@ -213,7 +222,7 @@ let interpret_sub (s:operand) (d:operand) (xs:x86_state) : unit =
 
 let interpret_mul (s:operand) (d:reg) (xs:x86_state) : unit = 
     begin
-        let s_val = eval_operand s xs in
+        let s_val = eval_operand_val s xs in
         let d_val = read_reg d xs in
         let result64 = Int64.mul (Int64.of_int32 s_val) (Int64.of_int32 d_val) in
         let result = Int64.to_int32 result64 in
@@ -237,7 +246,7 @@ let interpret_not (d:operand) (xs:x86_state) : unit =
 
 let interpret_and (s:operand) (d:operand) (xs:x86_state) : unit = 
     begin
-        let s_val = eval_operand s xs in
+        let s_val = eval_operand_val s xs in
         let d_val = read_operand d xs in
         let result = Int32.logand s_val d_val in
         let _ = (xs.s_of = false) in ();
@@ -248,7 +257,7 @@ let interpret_and (s:operand) (d:operand) (xs:x86_state) : unit =
 
 let interpret_or (s:operand) (d:operand) (xs:x86_state) : unit = 
     begin
-        let s_val = eval_operand s xs in
+        let s_val = eval_operand_val s xs in
         let d_val = read_operand d xs in
         let result = Int32.logor s_val d_val in
         let _ = (xs.s_of = false) in ();
@@ -259,7 +268,7 @@ let interpret_or (s:operand) (d:operand) (xs:x86_state) : unit =
 
 let interpret_xor (s:operand) (d:operand) (xs:x86_state) : unit = 
     begin
-        let s_val = eval_operand s xs in
+        let s_val = eval_operand_val s xs in
         let d_val = read_operand d xs in
         let result = Int32.logxor s_val d_val in
         let _ = (xs.s_of = false) in ();
@@ -270,7 +279,7 @@ let interpret_xor (s:operand) (d:operand) (xs:x86_state) : unit =
 
 let interpret_sar (amnt:operand) (d:operand) (xs:x86_state) : unit = 
     begin
-        let amnt_val = Int32.to_int(eval_operand amnt xs) in
+        let amnt_val = Int32.to_int(eval_operand_val amnt xs) in
         let d_val = read_operand d xs in
         let result = Int32.shift_right d_val amnt_val in
         if amnt_val <> 0 then
@@ -283,7 +292,7 @@ let interpret_sar (amnt:operand) (d:operand) (xs:x86_state) : unit =
 
 let interpret_shl (amnt:operand) (d:operand) (xs:x86_state) : unit = 
     begin
-        let amnt_val = Int32.to_int(eval_operand amnt xs) in
+        let amnt_val = Int32.to_int(eval_operand_val amnt xs) in
         let d_val = read_operand d xs in
         let result = Int32.shift_left d_val amnt_val in
         if amnt_val <> 0 then
@@ -296,7 +305,7 @@ let interpret_shl (amnt:operand) (d:operand) (xs:x86_state) : unit =
 
 let interpret_shr (amnt:operand) (d:operand) (xs:x86_state) : unit = 
     begin
-        let amnt_val = Int32.to_int(eval_operand amnt xs) in
+        let amnt_val = Int32.to_int(eval_operand_val amnt xs) in
         let d_val = read_operand d xs in
         let result = Int32.shift_right_logical d_val amnt_val in
         if amnt_val <> 0 then
@@ -345,13 +354,26 @@ let interpret_pop (d:operand) (xs:x86_state) : unit =
         write_operand d data xs
     end
 
+let interpret_cmp (s1:operand) (s2:operand) (xs:x86_state) : unit = 
+    begin
+        let s1_val = Int32.mul (-1l) (eval_operand_val s1 xs) in 
+        let s2_val = eval_operand_val s2 xs in  
+        let result64 = Int64.add (Int64.of_int32 s1_val) (Int64.of_int32 s2_val) in
+        let result = Int64.to_int32 result64 in
+        let _ = (if (has_same_sign (Int64.of_int32 s1_val) (Int64.of_int32 s2_val) && not (has_same_sign (Int64.of_int32 result) (Int64.of_int32 s1_val)) || result = Int32.min_int) then 
+            xs.s_of = true 
+        else xs.s_of = false) in ();
+        set_sf xs result;
+        set_zf xs result;
+    end
+
 let rec interpret (code:insn_block list) (xs:x86_state) (l:lbl) : unit = 
     begin
         match code with
         | [] -> ()
-        | _  -> interpret_insns (find_block code l).insns xs
+        | _  -> interpret_insns (find_block code l).insns xs code
     end
-    and interpret_insns (code_insns:insn list) (xs:x86_state) : unit = 
+    and interpret_insns (code_insns:insn list) (xs:x86_state) (code:insn_block list): unit = 
     begin
         match code_insns with
         | [] -> ()
@@ -360,55 +382,97 @@ let rec interpret (code:insn_block list) (xs:x86_state) (l:lbl) : unit =
                     match i with
                     | Neg (d) -> 
                             interpret_neg d xs;
-                            interpret_insns rest xs
+                            interpret_insns rest xs code
                     | Add (s, d) -> 
                             interpret_add s d xs;
-                            interpret_insns rest xs
+                            interpret_insns rest xs code
                     | Sub (s, d) -> 
                             interpret_sub s d xs;
-                            interpret_insns rest xs
+                            interpret_insns rest xs code
                     | Imul (s, d) -> 
                             interpret_mul s d xs;
-                            interpret_insns rest xs
+                            interpret_insns rest xs code
                     | Not (d) -> 
                             interpret_not d xs;
-                            interpret_insns rest xs
+                            interpret_insns rest xs code
                     | And (s, d) -> 
                             interpret_and s d xs;
-                            interpret_insns rest xs
+                            interpret_insns rest xs code
                     | Or (s, d) -> 
                             interpret_or s d xs;
-                            interpret_insns rest xs
+                            interpret_insns rest xs code
                     | Xor (s, d) -> 
                             interpret_xor s d xs;
-                            interpret_insns rest xs
+                            interpret_insns rest xs code
                     | Sar (amnt, d) -> 
                             interpret_sar amnt d xs;
-                            interpret_insns rest xs
+                            interpret_insns rest xs code
                     | Shl (amnt, d) -> 
                             interpret_shl amnt d xs;
-                            interpret_insns rest xs
+                            interpret_insns rest xs code
                     | Shr (amnt, d) -> 
                             interpret_shr amnt d xs;
-                            interpret_insns rest xs
+                            interpret_insns rest xs code
                     | Setb (cc, d) -> 
                             interpret_setb cc d xs;
-                            interpret_insns rest xs
+                            interpret_insns rest xs code
                     | Lea (s, d) -> 
                             interpret_lea s d xs;
-                            interpret_insns rest xs
+                            interpret_insns rest xs code
                     | Mov (s, d) -> 
                             interpret_mov s d xs;
-                            interpret_insns rest xs
+                            interpret_insns rest xs code
                     | Push (s) -> 
                             interpret_push s xs;
-                            interpret_insns rest xs
+                            interpret_insns rest xs code
                     | Pop (d) -> 
                             interpret_pop d xs;
-                            interpret_insns rest xs
-                    | _ -> ()
+                            interpret_insns rest xs code
+                    | Cmp (s1, s2) -> 
+                            interpret_cmp s1 s2 xs;
+                            interpret_insns rest xs code
+                    | Jmp (s) -> 
+                            interpret_jmp s xs code;
+                    | Call (s) -> 
+                            interpret_call s xs code;
+                            interpret_insns rest xs code
+                    | Ret -> 
+                            interpret_ret xs
+                    | J (cc, l) -> 
+                            begin
+                                if condition_matches xs cc then
+                                    interpret code xs l
+                                else
+                                    interpret_insns rest xs code
+                            end
                 end
     end
+    and interpret_jmp (d:operand) (xs:x86_state) (code:insn_block list) : unit = 
+        begin
+            match d with
+            | Lbl l -> interpret code xs l     
+            | _ -> raise (X86_segmentation_fault "Invalid jump")
+        end
+    and interpret_call (d:operand) (xs:x86_state) (code:insn_block list) : unit = 
+        begin
+            match d with
+            | Lbl l -> 
+                    begin
+                        let old_xs = xs in
+                        interpret_push (Imm 0l) xs;
+                        interpret code xs l;
+                        write_reg Eax (read_reg Eax old_xs) xs;
+                        write_reg Ecx (read_reg Ecx old_xs) xs;
+                        write_reg Edx (read_reg Edx old_xs) xs
+                    end
+            | _ -> raise (X86_segmentation_fault "Invalid jump");
+        end
+    and interpret_ret (xs:x86_state) : unit = 
+        begin
+            let curr_esp = read_reg Esp xs in
+            let new_esp = Int32.add curr_esp 4l in
+            write_reg Esp new_esp xs;
+        end
 
 let run (code:insn_block list): int32 = 
   let main = mk_lbl_named "main" in 

@@ -74,4 +74,53 @@ let provided_tests : suite = [
                 state.s_regs.(3) = -2l) 
     );
   ]);
+  Test ("Student-Provided test for Not | And | Or | Xor instr", [
+    ("Logical", st_test "..."
+            [(mk_block "main" [
+                Not (eax);
+                Not (ebx);
+                Not (ecx);
+                Not (edx);
+                And (Imm 0x1al, ebx);
+                Or (Imm 0x00l, ecx);
+	            Xor (Imm 0xfffffffel, edx);
+            ])]
+            (fun state ->
+                state.s_regs.(0) = 0xffffffffl &&
+                state.s_regs.(1) = 0x1al &&
+                state.s_regs.(2) = 0xffffffffl &&
+                state.s_regs.(3) = 1l) 
+    );
+  ]);
+  Test ("Student-Provided test for pop instr", [
+    ("pop", st_test "..."
+            [(mk_block "main" [
+                Add (Imm (-8l), esp);
+                Mov (Imm (42l),  stack_offset 0l);
+                Pop (eax);
+                Ret;
+            ])]
+            (fun state -> state.s_regs.(0) = 0x2al &&
+        state.s_regs.(7) = 0xFFFFFFFCl)
+    );
+  ]);
+  
+  Test ("Student-Provided test for And instr", [
+  ("and", st_test "eax=2 ebx=2 ecx=1 *1023=1" [(mk_block "main"  [
+      Mov (Imm 2l, eax);
+      Mov (Imm 3l, ebx);
+      Mov (Imm 255l, ecx);
+      Mov (Imm 1l , stack_offset 0l);
+      And (eax, eax);
+      And (Imm 2l, eax);
+      And (eax, ebx);
+      And (stack_offset 0l, ecx);
+      Ret;
+    ])] 
+  (fun state ->(*print_state state;*)
+        state.s_regs.(0) = 2l &&
+        state.s_regs.(1) = 2l &&
+        state.s_regs.(2) = 1l &&
+        state.s_memory.(mem_size-1) = 1l));
+  ]);
 ] 
