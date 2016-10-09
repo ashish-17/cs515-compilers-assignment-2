@@ -231,6 +231,7 @@ let interpret_mul (s:operand) (d:reg) (xs:x86_state) : unit =
         else xs.s_of <- false) in ();
         set_sf xs result;
         set_zf xs result;
+        Printf.printf("%lx x %lx = %lx") s_val d_val result;
         write_reg d result xs
     end
 
@@ -332,7 +333,7 @@ let interpret_lea (s:ind) (d:reg) (xs:x86_state) : unit =
 
 let interpret_mov (s:operand) (d:operand) (xs:x86_state) : unit = 
     begin
-        let s_val = eval_operand s xs in
+        let s_val = eval_operand_val s xs in
         write_operand d s_val xs
     end
 
@@ -368,6 +369,7 @@ let interpret_cmp (s1:operand) (s2:operand) (xs:x86_state) : unit =
     end
 
 let rec interpret (code:insn_block list) (xs:x86_state) (l:lbl) : unit = 
+    Printf.printf("\nLabel\n");
     begin
         match code with
         | [] -> ()
@@ -384,6 +386,7 @@ let rec interpret (code:insn_block list) (xs:x86_state) (l:lbl) : unit =
                             interpret_neg d xs;
                             interpret_insns rest xs code
                     | Add (s, d) -> 
+                            Printf.printf("\nadd\n");
                             interpret_add s d xs;
                             interpret_insns rest xs code
                     | Sub (s, d) -> 
@@ -420,12 +423,15 @@ let rec interpret (code:insn_block list) (xs:x86_state) (l:lbl) : unit =
                             interpret_lea s d xs;
                             interpret_insns rest xs code
                     | Mov (s, d) -> 
+                            Printf.printf("\nMov\n");
                             interpret_mov s d xs;
                             interpret_insns rest xs code
                     | Push (s) -> 
+                            Printf.printf("\npush\n");
                             interpret_push s xs;
                             interpret_insns rest xs code
                     | Pop (d) -> 
+                            Printf.printf("\npop\n");
                             interpret_pop d xs;
                             interpret_insns rest xs code
                     | Cmp (s1, s2) -> 
@@ -438,7 +444,9 @@ let rec interpret (code:insn_block list) (xs:x86_state) (l:lbl) : unit =
                             interpret_insns rest xs code
                     | Ret -> 
                             interpret_ret xs
-                    | J (cc, l) -> 
+                    | J (cc, l) ->
+                            Printf.printf("\nJJ\n");
+                            print_state xs;
                             begin
                                 if condition_matches xs cc then
                                     interpret code xs l
@@ -448,26 +456,25 @@ let rec interpret (code:insn_block list) (xs:x86_state) (l:lbl) : unit =
                 end
     end
     and interpret_jmp (d:operand) (xs:x86_state) (code:insn_block list) : unit = 
+        Printf.printf("\njmp\n");
         begin
             match d with
             | Lbl l -> interpret code xs l     
             | _ -> raise (X86_segmentation_fault "Invalid jump")
         end
     and interpret_call (d:operand) (xs:x86_state) (code:insn_block list) : unit = 
+        Printf.printf("\nCall\n");
         begin
             match d with
             | Lbl l -> 
                     begin
-                        let old_xs = xs in
                         interpret_push (Imm 0l) xs;
                         interpret code xs l;
-                        write_reg Eax (read_reg Eax old_xs) xs;
-                        write_reg Ecx (read_reg Ecx old_xs) xs;
-                        write_reg Edx (read_reg Edx old_xs) xs
                     end
             | _ -> raise (X86_segmentation_fault "Invalid jump");
         end
     and interpret_ret (xs:x86_state) : unit = 
+        Printf.printf("\nRet\n");
         begin
             let curr_esp = read_reg Esp xs in
             let new_esp = Int32.add curr_esp 4l in
@@ -475,6 +482,7 @@ let rec interpret (code:insn_block list) (xs:x86_state) (l:lbl) : unit =
         end
 
 let run (code:insn_block list): int32 = 
+    Printf.printf("\nRun code");
   let main = mk_lbl_named "main" in 
   let xs = mk_init_state () in 
   let _ = interpret code xs main in 
