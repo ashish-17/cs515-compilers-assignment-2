@@ -11,15 +11,58 @@ let st_test (s:string) (code:insn_block list) (f:x86_state -> bool) () =
           let _ = interpret code st (mk_lbl_named "main") in
                if (f st) then () else failwith ("expected " ^ s)
 
+let run_test (ans:int32) (code:Rux86.insn_block list) () =
+  let res = Rux86interpreter.run code in
+    if res = ans then () else failwith (Printf.sprintf("Expected %lx got %lx") ans res)
+
 let provided_tests : suite = [
   Test ("Student-Provided Big Test for Part II", [
+    ("GCD", run_test 2l
+         [(mk_insn_block (mk_lbl_named "gcd") [
+                Push (ebp);
+                Mov (esp, ebp);
+                Mov ((stack_offset 12l), eax); (* a *)
+                Mov ((stack_offset 8l), ebx); (* b *)
+                Cmp (ebx, eax);
+                J (Sgt, (mk_lbl_named "gcd_recurse_gt"));
+                J (Slt, (mk_lbl_named "gcd_recurse_lt"));
+                Pop (ebp);
+                Ret
+            ]);
+            (mk_insn_block (mk_lbl_named "gcd_recurse_gt") [
+                Sub (ebx, eax); (* a = a-b*)
+                Push (eax);
+                Push (ebx);
+                Call (Lbl (mk_lbl_named "gcd"));
+                Add ((Imm 4l), esp);
+                Pop (ebp);
+                Ret
+            ]);
+            (mk_insn_block (mk_lbl_named "gcd_recurse_lt") [
+                Mov (eax, ecx);
+                Mov (ebx, eax);
+                Mov (ecx, ebx);
+                Sub (ebx, eax); (* a = a-b*)
+                Push (eax);
+                Push (ebx);
+                Call (Lbl (mk_lbl_named "gcd"));
+                Add ((Imm 4l), esp);
+                Pop (ebp);
+                Ret
+            ]);
+            (mk_insn_block (mk_lbl_named "main") [
+                Push (Imm 18l); (* a *)
+                Push (Imm 34l); (* b *)
+                Call (Lbl (mk_lbl_named "gcd"));
+                Add ((Imm 4l), esp);
+                Ret
+            ])]);
   ]);
  
   Test ("Student-Provided test for Add instr", [
     ("add", st_test "..."
             [(mk_block "main" [
                 Add (Imm 1l, eax);
-	            Add (eax, ebx);
                 Add (Imm 2147483647l, ecx);
                 Add (ecx, edx);
                 Add (Imm 1l, edx);
@@ -28,7 +71,7 @@ let provided_tests : suite = [
             ])]
             (fun state ->
                 state.s_regs.(0) = 1l &&
-                state.s_regs.(1) = 1l &&
+                state.s_regs.(1) = 0l &&
                 state.s_regs.(2) = 2147483647l &&
                 state.s_regs.(3) = -2147483648l &&
                 state.s_regs.(4) = -3l) 
