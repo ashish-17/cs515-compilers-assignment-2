@@ -225,6 +225,126 @@ let interpret_mul (s:operand) (d:reg) (xs:x86_state) : unit =
         write_reg d result xs
     end
 
+let interpret_not (d:operand) (xs:x86_state) : unit = 
+    begin
+        let d_val = read_operand d xs in
+        let result = Int32.lognot d_val in
+        let _ = (xs.s_of = false) in ();
+        set_sf xs result;
+        set_zf xs result;
+        write_operand d result xs
+    end
+
+let interpret_and (s:operand) (d:operand) (xs:x86_state) : unit = 
+    begin
+        let s_val = eval_operand s xs in
+        let d_val = read_operand d xs in
+        let result = Int32.logand s_val d_val in
+        let _ = (xs.s_of = false) in ();
+        set_sf xs result;
+        set_zf xs result;
+        write_operand d result xs
+    end
+
+let interpret_or (s:operand) (d:operand) (xs:x86_state) : unit = 
+    begin
+        let s_val = eval_operand s xs in
+        let d_val = read_operand d xs in
+        let result = Int32.logor s_val d_val in
+        let _ = (xs.s_of = false) in ();
+        set_sf xs result;
+        set_zf xs result;
+        write_operand d result xs
+    end
+
+let interpret_xor (s:operand) (d:operand) (xs:x86_state) : unit = 
+    begin
+        let s_val = eval_operand s xs in
+        let d_val = read_operand d xs in
+        let result = Int32.logxor s_val d_val in
+        let _ = (xs.s_of = false) in ();
+        set_sf xs result;
+        set_zf xs result;
+        write_operand d result xs
+    end
+
+let interpret_sar (amnt:operand) (d:operand) (xs:x86_state) : unit = 
+    begin
+        let amnt_val = Int32.to_int(eval_operand amnt xs) in
+        let d_val = read_operand d xs in
+        let result = Int32.shift_right d_val amnt_val in
+        if amnt_val <> 0 then
+            set_sf xs result;
+            set_zf xs result;
+        if amnt_val = 1 then
+            let _ = (xs.s_of = false) in ();
+        write_operand d result xs
+    end
+
+let interpret_shl (amnt:operand) (d:operand) (xs:x86_state) : unit = 
+    begin
+        let amnt_val = Int32.to_int(eval_operand amnt xs) in
+        let d_val = read_operand d xs in
+        let result = Int32.shift_left d_val amnt_val in
+        if amnt_val <> 0 then
+            set_sf xs result;
+            set_zf xs result;
+        if amnt_val = 1 && ((get_bit 31 result) <> (get_bit 30 result)) then
+            let _ = (xs.s_of = true) in ();
+        write_operand d result xs
+    end
+
+let interpret_shr (amnt:operand) (d:operand) (xs:x86_state) : unit = 
+    begin
+        let amnt_val = Int32.to_int(eval_operand amnt xs) in
+        let d_val = read_operand d xs in
+        let result = Int32.shift_right_logical d_val amnt_val in
+        if amnt_val <> 0 then
+            set_sf xs result;
+            set_zf xs result;
+        if amnt_val = 1 then
+            let _ = (xs.s_of = get_bit 31 d_val) in ();
+        write_operand d result xs
+    end
+
+let interpret_setb (cc:Rux86.ccode) (d:operand) (xs:x86_state) : unit = 
+    begin
+        let d_val = read_operand d xs in
+        let isCCMatch = condition_matches xs cc in
+        let result = if isCCMatch then Int32.logand d_val 0xfffffff1l else Int32.logand d_val 0xfffffff0l in
+        write_operand d result xs
+    end
+
+let interpret_lea (s:ind) (d:reg) (xs:x86_state) : unit = 
+    begin
+        let s_val = eval_ind s xs in
+        write_reg d s_val xs
+    end
+
+let interpret_mov (s:operand) (d:operand) (xs:x86_state) : unit = 
+    begin
+        let s_val = eval_operand s xs in
+        write_operand d s_val xs
+    end
+
+let interpret_push (s:operand) (xs:x86_state) : unit = 
+    begin
+        let s_val = eval_operand s xs in
+        let curr_esp = read_reg Esp xs in
+        let new_esp = Int32.sub curr_esp 4l in
+        write_reg Esp new_esp xs;
+        write_mem new_esp s_val xs
+    end
+
+let interpret_pop (d:operand) (xs:x86_state) : unit = 
+    begin
+        let curr_esp = read_reg Esp xs in
+        let data = read_mem curr_esp xs in
+        let new_esp = Int32.add curr_esp 4l in
+        write_reg Esp new_esp xs;
+        write_operand d data xs
+    end
+
 let rec interpret (code:insn_block list) (xs:x86_state) (l:lbl) : unit = 
     begin
         match code with
@@ -249,6 +369,42 @@ let rec interpret (code:insn_block list) (xs:x86_state) (l:lbl) : unit =
                             interpret_insns rest xs
                     | Imul (s, d) -> 
                             interpret_mul s d xs;
+                            interpret_insns rest xs
+                    | Not (d) -> 
+                            interpret_not d xs;
+                            interpret_insns rest xs
+                    | And (s, d) -> 
+                            interpret_and s d xs;
+                            interpret_insns rest xs
+                    | Or (s, d) -> 
+                            interpret_or s d xs;
+                            interpret_insns rest xs
+                    | Xor (s, d) -> 
+                            interpret_xor s d xs;
+                            interpret_insns rest xs
+                    | Sar (amnt, d) -> 
+                            interpret_sar amnt d xs;
+                            interpret_insns rest xs
+                    | Shl (amnt, d) -> 
+                            interpret_shl amnt d xs;
+                            interpret_insns rest xs
+                    | Shr (amnt, d) -> 
+                            interpret_shr amnt d xs;
+                            interpret_insns rest xs
+                    | Setb (cc, d) -> 
+                            interpret_setb cc d xs;
+                            interpret_insns rest xs
+                    | Lea (s, d) -> 
+                            interpret_lea s d xs;
+                            interpret_insns rest xs
+                    | Mov (s, d) -> 
+                            interpret_mov s d xs;
+                            interpret_insns rest xs
+                    | Push (s) -> 
+                            interpret_push s xs;
+                            interpret_insns rest xs
+                    | Pop (d) -> 
+                            interpret_pop d xs;
                             interpret_insns rest xs
                     | _ -> ()
                 end
